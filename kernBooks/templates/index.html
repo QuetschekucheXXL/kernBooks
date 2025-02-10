@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tränkberg-Bib</title>
+  <!-- Includes the QuaggaJS Library to scan the video for barcodes -->
+  <script src="https://unpkg.com/@ericblade/quagga2/dist/quagga.min.js" defer></script>
+  <!-- Include the custom JavaScript file for handling the scanning -->
+  <script src="../app.js" defer></script>
+</head>
+<body>
+  <h1>Scanne ein Buch ein</h1>
+  <!-- Container for EAN-13 barcode scanner -->
+  <div id="barcode-scanner" style="width: 500px; height: 300px; background-color: aqua;">
+    <video id="video" width="500" height="300" autoplay></video>
+  </div>
+  <!-- Canvas is needed for the QuaggaJS-Lib-->
+  <canvas id="canvas" style="display: none;"></canvas>
+  <!-- Starting and Stopping the Camera in case no ean can be detected -->
+  <button id="start-barcode-scanner">Starte den Scan</button>
+  <button id="stop-barcode-scanner">Scan abbrechen</button>
+  <p id="result"></p>
+</body>
+</html>
