@@ -1,17 +1,12 @@
 let currentStream = null;
 
-async function startCameraWithBack() {
+// tries to find out if there is a back camera to be used if not default to the front camera
+async function startCameraWithPreferredConstraints() {
   try {
-    // Enumerate all video input devices
     const devices = await navigator.mediaDevices.enumerateDevices();
     const videoDevices = devices.filter(device => device.kind === 'videoinput');
-
-    // Attempt to select a device with a label that indicates it's the back camera.
-    // The label may contain "back", "environment", or "rear".
     const backCamera = videoDevices.find(device => /back|environment|rear/i.test(device.label));
-    
-    // If a back camera is found, use its deviceId; otherwise, fallback to default.
-    const constraints = backCamera
+    const constraints = backCamera 
       ? {
           video: {
             deviceId: { exact: backCamera.deviceId },
@@ -21,39 +16,72 @@ async function startCameraWithBack() {
         }
       : {
           video: {
-            facingMode: { exact: 'environment' },
             width: { ideal: 1280 },
             height: { ideal: 720 }
           }
         };
-
-    const stream = await navigator.mediaDevices.getUserMedia(constraints);
-    return stream;
+    return await navigator.mediaDevices.getUserMedia(constraints);
   } catch (error) {
-    console.error('Error accessing the camera with back constraints:', error);
+    console.error('Error accessing the camera with preferred constraints:', error);
     throw error;
   }
 }
 
+// Function to fetch Book Info with the isbn via API
+async function fetchBookDetails(isbn) {
+  try {
+    // Use the Open Library API to fetch book details using the ISBN
+    const response = await fetch(`https://openlibrary.org/isbn/${isbn}.json`);
+    if (!response.ok) {
+      throw new Error(`Book not found (status: ${response.status})`);
+    }
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error fetching book details:', error);
+    return null;
+  }
+}
+
+// Function to display the fetched Book Information on the page
+function displayBookInfo(bookData) {
+  const infoDiv = document.getElementById('book-info');
+  if (!bookData) {
+    infoDiv.textContent = 'No book details found.';
+    return;
+  }
+  // For example, display title, authors, and description if available
+  let authors = 'Unknown';
+  if (bookData.authors && Array.isArray(bookData.authors)) {
+    // Open Library returns authors as objects with "key" properties.
+    // You might need an extra call to fetch the author name; for simplicity, we'll show the key.
+    authors = bookData.authors.map(author => author.key).join(', ');
+  }
+  infoDiv.innerHTML = `
+    <h2>${bookData.title || 'Untitled'}</h2>
+    <p><strong>Author(s):</strong> ${authors}</p>
+    <p><strong>Description:</strong> ${bookData.description ? (typeof bookData.description === 'string' ? bookData.description : bookData.description.value) : 'No description available.'}</p>
+  `;
+}
+
 document.getElementById('start-barcode-scanner').addEventListener('click', async () => {
   const videoElement = document.getElementById('video');
-  
+
   try {
-    // Request access to the back camera using our helper function
-    const stream = await startCameraWithBack();
+    // Request access to the preferred camera (back on mobile if available, default on laptop)
+    const stream = await startCameraWithPreferredConstraints();
     videoElement.srcObject = stream;
     currentStream = stream;
 
-    // Initialize QuaggaJS with the video element as the target
+    // Initialize QuaggaJS
     Quagga.init({
       inputStream: {
         name: 'Live',
         type: 'LiveStream',
-        target: videoElement, // Use the existing video element
+        target: videoElement, // Using the existing video element
         constraints: {
           width: { ideal: 1280 },
-          height: { ideal: 720 },
-          // Note: We're not using facingMode here because we've already selected the device by deviceId.
+          height: { ideal: 720 }
         },
       },
       decoder: {
@@ -67,7 +95,7 @@ document.getElementById('start-barcode-scanner').addEventListener('click', async
       },
       locate: true,
       locator: {
-        patchSize: 'x-small', // Helps with detection of smaller barcodes
+        patchSize: 'x-small',
         halfSample: true
       }
     }, (err) => {
@@ -78,26 +106,32 @@ document.getElementById('start-barcode-scanner').addEventListener('click', async
       Quagga.start();
     });
 
-    // Set up the detection event handler
-    Quagga.onDetected((result) => {
-      const code = result.codeResult.code;
-      document.getElementById('result').textContent = `Barcode detected: ${code}`;
-      console.log(`Barcode detected: ${code}`);
-      // Stop scanning on first detection
+    // Set up detection event handler
+    Quagga.onDetected(async (result) => {
+      const isbn = result.codeResult.code;
+      document.getElementById('result').textContent = `Barcode detected: ${isbn}`;
+      console.log(`Barcode detected: ${isbn}`);
+      // Stop scanning on detection
       Quagga.stop();
       stopVideoStream();
+
+      // Fetch and display book details using the scanned ISBN
+      const bookData = await fetchBookDetails(isbn);
+      displayBookInfo(bookData);
     });
 
   } catch (error) {
-    console.log('Error accessing the camera:', error);
+    console.log('Error starting barcode scanner:', error);
   }
 });
 
+// Stop Scanning Button
 document.getElementById('stop-barcode-scanner').addEventListener('click', () => {
   Quagga.stop(); // Stop QuaggaJS
   stopVideoStream(); // Stop the video stream
 });
 
+// Function to stop the video either if the button is clicked or a code is scanned successfully
 function stopVideoStream() {
   const videoElement = document.getElementById('video');
   if (currentStream) {
@@ -109,3 +143,15 @@ function stopVideoStream() {
     console.log('No active stream to stop.');
   }
 }
+
+// Function to initiate the query of book database via button klick
+document.getElementById('submit-isbn').addEventListener('click', async () => {
+    const isbn = document.getElementById('isbn-input').value.trim();
+    if (!isbn){
+        alert('Bitte gib eine ISBN ein!');
+        return;
+    }
+
+    const bookData = await fetchBookDetails(isbn);
+    displayBookInfo(bookData);
+});
