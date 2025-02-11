@@ -20,7 +20,7 @@ document.getElementById('start-barcode-scanner').addEventListener('click', async
                 constraints: {
                     width: { ideal: 1280 },
                     height: { ideal: 720 },
-                    facingMode: { exact: 'environment' } // Using the back camera
+                    facingMode: { exact: 'user' } // Using the back camera
                 },
             },
             decode: {
