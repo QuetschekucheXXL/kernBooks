@@ -31,12 +31,17 @@ async function startCameraWithPreferredConstraints() {
 async function fetchBookDetails(isbn) {
   try {
     // Use the Open Library API to fetch book details using the ISBN
-    const response = await fetch(`https://openlibrary.org/isbn/${isbn}.json`);
+    const response = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`);
     if (!response.ok) {
       throw new Error(`Book not found (status: ${response.status})`);
     }
     const data = await response.json();
-    return data;
+    // Access the book data using the ISBN key
+    const bookData = data[`ISBN:${isbn}`];
+    if (!bookData) {
+      throw new Error('No data found for the provided ISBN.');
+    }
+    return bookData;
   } catch (error) {
     console.error('Error fetching book details:', error);
     return null;
@@ -51,14 +56,15 @@ function displayBookInfo(bookData) {
     return;
   }
   // For example, display title, authors, and description if available
-  let authors = 'Unknown';
-  if (bookData.authors && Array.isArray(bookData.authors)) {
-    // Open Library returns authors as objects with "key" properties.
-    // You might need an extra call to fetch the author name; for simplicity, we'll show the key.
-    authors = bookData.authors.map(author => author.key).join(', ');
-  }
+  const title = bookData.title || 'Untitled';
+  console.log(title);
+  
+  const authors = bookData.authors && Array.isArray(bookData.authors)
+    ? bookData.authors.map(author => author.name || 'Unknown Author').join(', ')
+    : 'Unknown Author';
+
   infoDiv.innerHTML = `
-    <h2>${bookData.title || 'Untitled'}</h2>
+    <h2>${title}</h2>
     <p><strong>Author(s):</strong> ${authors}</p>
     <p><strong>Description:</strong> ${bookData.description ? (typeof bookData.description === 'string' ? bookData.description : bookData.description.value) : 'No description available.'}</p>
   `;
